@@ -11,17 +11,17 @@ export async function supabaseRoute() {
         get(name: string) { 
           return cookieStore.get(name)?.value; 
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: Record<string, unknown>) {
           try {
             cookieStore.set({ name, value, ...options });
-          } catch (error) {
+          } catch {
             // 處理在 Server Action 中設置 cookie 的錯誤
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: Record<string, unknown>) {
           try {
             cookieStore.set({ name, value: '', ...options });
-          } catch (error) {
+          } catch {
             // 處理在 Server Action 中移除 cookie 的錯誤
           }
         },
@@ -40,17 +40,17 @@ export async function supabaseServer() {
         get(name: string) { 
           return cookieStore.get(name)?.value; 
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: Record<string, unknown>) {
           try {
             cookieStore.set({ name, value, ...options });
-          } catch (error) {
+          } catch {
             // 處理在 Server Action 中設置 cookie 的錯誤
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: Record<string, unknown>) {
           try {
             cookieStore.set({ name, value: '', ...options });
-          } catch (error) {
+          } catch {
             // 處理在 Server Action 中移除 cookie 的錯誤
           }
         },

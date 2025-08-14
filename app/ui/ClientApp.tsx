@@ -16,10 +16,8 @@ export default function ClientApp() {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [queue, setQueue] = useState<{ id: string; problem: Problem }[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true); // kept for future loading states
 
   async function refreshAll() {
-    setLoading(true);
     const date = new Date().toISOString().slice(0,10);
     const [pRes, qRes, rRes] = await Promise.all([
       fetch('/api/problems').then(r=>r.json()),
@@ -29,7 +27,6 @@ export default function ClientApp() {
     setProblems(pRes.problems ?? []);
     setQueue(qRes.items ?? []);
     setReviews(rRes.reviews ?? []);
-    setLoading(false);
   }
   useEffect(()=>{ refreshAll(); },[]);
   useEffect(()=>{
