@@ -33,13 +33,13 @@ Add 2–4 images or GIFs here once available, e.g. `docs/dashboard.png`, `docs/r
 
 ## Architecture
 ```mermaid
-graph TD
-  A[Client (Next.js App)] --> B[/Route Handlers /api/*/]
-  B --> C[(Supabase Postgres)]
-  B --> D[Supabase Auth]
-  B --> E[Resend (Email)]
-  B --> F[Web Push (VAPID)]
-  G[Vercel Cron / External Cron] --> B
+flowchart TD;
+  A["Client (Next.js App)"] --> B["Route Handlers (/api/*)"];
+  B --> C[("Supabase Postgres")];
+  B --> D["Supabase Auth"];
+  B --> E["Resend (Email)"];
+  B --> F["Web Push (VAPID)"];
+  G["Vercel Cron / External Cron"] --> B;
 ```
 
 ## Setup
