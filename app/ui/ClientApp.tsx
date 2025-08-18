@@ -12,13 +12,34 @@ type Card = { id: string; user_id: string; problem_id: string; state: string; ea
 type Review = { id: string; user_id: string; problem_id: string; card_id: string; mode: string; started_at: string; finished_at: string; duration_sec: number; result: "pass"|"fail"|"partial"; q: number; error_types: string[]; notes?: string };
 
 export default function ClientApp() {
-  const [active, setActive] = useState<"dashboard"|"review"|"add"|"library"|"reports">("dashboard");
+  const [active, setActive] = useState<"dashboard"|"review"|"weekly"|"add"|"library"|"reports">("dashboard");
   const [problems, setProblems] = useState<Problem[]>([]);
   const [queue, setQueue] = useState<{ id: string; problem: Problem }[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [weeklyItems, setWeeklyItems] = useState<{ id: string; due_at: string; problem: Problem }[]>([]);
+  type WeeklyItem = { id: string; due_at: string; problem: Problem };
+
+  function groupByDate(items: WeeklyItem[]) {
+    return items.reduce((acc: Record<string, WeeklyItem[]>, it) => {
+      const key = it.due_at;
+      acc[key] = acc[key] || [];
+      acc[key].push(it);
+      return acc;
+    }, {});
+  }
+  const [weekFrom, setWeekFrom] = useState<string>(() => formatYMDLocal(new Date()));
+  const [weekTo, setWeekTo] = useState<string>(() => addDaysYMD(formatYMDLocal(new Date()), 6));
+  const groupedWeekly = groupByDate(weeklyItems);
+
+  function dayRangeLabel(from: string, to: string) {
+    const f = parseYMDLocal(from);
+    const t = parseYMDLocal(to);
+    const fmt = (d: Date) => `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`;
+    return `${fmt(f)}–${fmt(t)}`;
+  }
 
   async function refreshAll() {
-    const date = new Date().toISOString().slice(0,10);
+    const date = formatYMDLocal(new Date());
     const [pRes, qRes, rRes] = await Promise.all([
       fetch('/api/problems').then(r=>r.json()),
       fetch(`/api/review-queue?date=${date}`).then(r=>r.json()),
@@ -29,11 +50,24 @@ export default function ClientApp() {
     setReviews(rRes.reviews ?? []);
   }
   useEffect(()=>{ refreshAll(); },[]);
+  useEffect(()=>{ fetchWeekly(weekFrom, weekTo); }, [weekFrom, weekTo]);
+  useEffect(()=>{
+    function onWeeklyRefresh(){ fetchWeekly(weekFrom, weekTo); }
+    if (typeof window !== 'undefined') window.addEventListener('weekly-refresh', onWeeklyRefresh);
+    return ()=>{ if (typeof window !== 'undefined') window.removeEventListener('weekly-refresh', onWeeklyRefresh); };
+  }, [weekFrom, weekTo]);
   useEffect(()=>{
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
     }
   },[]);
+
+  async function fetchWeekly(from: string, to: string) {
+    const url = `/api/review-week?from=${from}&to=${to}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    setWeeklyItems(json.items ?? []);
+  }
 
   const dueCount = queue.length;
   const streak = useStreak(reviews);
@@ -51,6 +85,17 @@ export default function ClientApp() {
           {active==='dashboard' && <Dashboard problems={problems} reviews={reviews} dueCount={dueCount} streak={streak} weekly={weekly} />}
           {active==='add' && <AddProblem onAdded={()=>{ refreshAll(); setActive('review'); }} />}
           {active==='review' && <ReviewQueue items={queue} onSubmitted={()=> refreshAll()} />}
+          {active==='weekly' && (
+            <WeeklyOverview
+              items={weeklyItems}
+              from={weekFrom}
+              to={weekTo}
+              onPrevWeek={()=>{ setWeekFrom(addDaysYMD(weekFrom, -7)); setWeekTo(addDaysYMD(weekTo, -7)); }}
+              onNextWeek={()=>{ setWeekFrom(addDaysYMD(weekFrom, 7)); setWeekTo(addDaysYMD(weekTo, 7)); }}
+              onThisWeek={()=>{ const today=formatYMDLocal(new Date()); setWeekFrom(today); setWeekTo(addDaysYMD(today, 6)); }}
+              onStartToday={()=> setActive('review')}
+            />
+          )}
           {active==='library' && <Library problems={problems} onDeleted={()=> refreshAll()} />}
           {active==='reports' && <Reports weekly={weekly} tagStats={tagStats} />}
         </main>
@@ -86,13 +131,14 @@ function Header({ onToggleNav }: { onToggleNav: ()=>void }) {
   );
 }
 
-function Nav({ active, setActive, dueCount }: { active: "dashboard"|"review"|"add"|"library"|"reports"; setActive: (t: "dashboard"|"review"|"add"|"library"|"reports")=>void; dueCount: number }) {
-  const items: { key: "dashboard"|"review"|"add"|"library"|"reports"; label: string; icon: React.ReactNode }[] = [
+function Nav({ active, setActive, dueCount }: { active: "dashboard"|"review"|"weekly"|"add"|"library"|"reports"; setActive: (t: "dashboard"|"review"|"weekly"|"add"|"library"|"reports")=>void; dueCount: number }) {
+  const items: { key: "dashboard"|"review"|"weekly"|"add"|"library"|"reports"; label: string; icon: React.ReactNode }[] = [
     { key: "dashboard", label: "Dashboard", icon: <TrendingUp size={18} /> },
     { key: "review", label: "Review", icon: <RefreshCw size={18} /> },
+    { key: "weekly", label: "Weekly", icon: <CalendarDays size={18} /> },
     { key: "add", label: "Add Problem", icon: <Plus size={18} /> },
     { key: "library", label: "Library", icon: <NotebookPen size={18} /> },
-    { key: "reports", label: "Reports", icon: <CalendarDays size={18} /> },
+    { key: "reports", label: "Reports", icon: <Gauge size={18} /> },
   ];
   return (
     <nav className="bg-white shadow-sm rounded-2xl p-3 sticky top-16">
@@ -364,7 +410,10 @@ function Library({ problems, onDeleted }: { problems: Problem[]; onDeleted: ()=>
 
 function startOfDay(ts: number = Date.now()) { const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
 function addDays(ts: number, days: number) { const d = new Date(ts); d.setDate(d.getDate()+days); return d.getTime(); }
-function formatDate(ts: number) { const d = new Date(ts); return d.toISOString().slice(0,10); }
+function formatDate(ts: number) { const d = new Date(ts); return formatYMDLocal(d); }
+function formatYMDLocal(d: Date) { const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function parseYMDLocal(s: string) { const [y,m,day] = s.split('-').map(Number); return new Date(y, (m||1)-1, day||1); }
+function addDaysYMD(ymd: string, days: number) { const d=parseYMDLocal(ymd); d.setDate(d.getDate()+days); return formatYMDLocal(d); }
 
 function useWeeklyStats(reviews: Review[]) {
   const today = startOfDay();
@@ -461,6 +510,76 @@ function Reports({ weekly, tagStats }: { weekly: ReturnType<typeof useWeeklyStat
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function WeeklyOverview({ items, from, to, onPrevWeek, onNextWeek, onThisWeek, onStartToday }: { items: { id: string; due_at: string; problem: Problem }[]; from: string; to: string; onPrevWeek: ()=>void; onNextWeek: ()=>void; onThisWeek: ()=>void; onStartToday: ()=>void }) {
+  const days: { date: string; label: string }[] = [];
+  const start = parseYMDLocal(from);
+  for (let i=0;i<7;i++){ const d = new Date(start); d.setDate(d.getDate()+i); const iso=formatYMDLocal(d); days.push({ date: iso, label: d.toLocaleDateString(undefined, { weekday: 'short', month: 'numeric', day: 'numeric' }) }); }
+  const grouped = items.reduce((acc: Record<string, typeof items>, it) => { (acc[it.due_at] ||= []).push(it); return acc; }, {} as Record<string, typeof items>);
+  const total = items.length;
+  const isEmpty = total === 0;
+  const todayYMD = formatYMDLocal(new Date());
+  return (
+    <div className="space-y-3">
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="font-semibold">This Week ({new Date(from).toLocaleDateString()} – {new Date(to).toLocaleDateString()})</div>
+        <div className="flex gap-2">
+          <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" onClick={onPrevWeek}><ChevronLeft size={16}/> Prev</button>
+          <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" onClick={onThisWeek}>This Week</button>
+          <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" onClick={onNextWeek}>Next <ChevronRight size={16}/></button>
+          <button className="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm" onClick={onStartToday}><PlayCircle size={16}/> Start Today</button>
+        </div>
+      </div>
+      {isEmpty ? (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 text-center text-slate-500">
+          <div className="text-base font-medium mb-1">本週沒有待複習的題目</div>
+          <div className="text-sm">你可以先去排程或替題目加上標籤，建立你的複習節奏。</div>
+          <div className="flex gap-2 justify-center mt-3">
+            <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" onClick={onStartToday}>開始今天</button>
+          </div>
+        </div>
+      ) : (
+      <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+        {days.map(d => {
+          const isToday = d.date === todayYMD;
+          const cardClass = `bg-white rounded-2xl p-3 shadow-sm border ${isToday ? 'border-blue-400 bg-blue-50/40' : 'border-slate-100'}`;
+          return (
+          <div key={d.date} className={cardClass} onDragOver={(e)=>{ e.preventDefault(); }} onDrop={async (e)=>{
+            e.preventDefault();
+            const cardId = e.dataTransfer.getData('text/plain');
+            const targetDate = d.date;
+            if (!cardId) return;
+            const res = await fetch(`/api/cards/${cardId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ due_at: targetDate }) });
+            if (!res.ok) { alert('Failed to reschedule'); return; }
+            // optimistic: remove from old day and add to new day in local state by refetching
+            // Easiest: trigger This Week reload
+            const ev = new Event('weekly-refresh');
+            window.dispatchEvent(ev);
+          }}>
+            <div className="text-xs text-slate-500 flex items-center gap-2">
+              <span>{d.label}</span>
+            </div>
+            <div className="text-lg font-semibold">{grouped[d.date]?.length ?? 0}</div>
+            <div className="mt-2 space-y-2 max-h-72 overflow-auto pr-1">
+              {(grouped[d.date] ?? []).map(it => (
+                <div key={it.id} className="p-2 rounded-xl border hover:border-blue-300 hover:bg-blue-50/40 transition" draggable onDragStart={(e)=>{ e.dataTransfer.setData('text/plain', it.id); e.dataTransfer.setData('application/x-ymd', it.due_at); }}>
+                  <a className="font-medium text-sm hover:underline" href={it.problem.url} target="_blank" rel="noreferrer">{it.problem.title}</a>
+                  <div className="mt-1 text-xs text-slate-500 flex flex-wrap gap-2 items-center">
+                    <Badge>{it.problem.difficulty}</Badge>
+                    {it.problem.tags?.slice(0,2).map((t,i)=>(<Badge key={i}><Tag size={12}/> {t}</Badge>))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          );
+        })}
+      </div>
+      )}
+      <div className="text-sm text-slate-500">Total this week: {total}</div>
     </div>
   );
 }

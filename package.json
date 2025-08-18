@@ -33,5 +33,10 @@
     "eslint-config-next": "15.4.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "whatwg-url": "^14.2.0",
+    "tr46": "^4.1.1",
+    "uri-js": "^4.4.1"
   }
 }
