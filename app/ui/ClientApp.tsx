@@ -18,6 +18,7 @@ export default function ClientApp() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [weeklyItems, setWeeklyItems] = useState<{ id: string; due_at: string; problem: Problem }[]>([]);
   type WeeklyItem = { id: string; due_at: string; problem: Problem };
+  const [navOpen, setNavOpen] = useState(false);
 
   function groupByDate(items: WeeklyItem[]) {
     return items.reduce((acc: Record<string, WeeklyItem[]>, it) => {
@@ -76,7 +77,20 @@ export default function ClientApp() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      <Header onToggleNav={()=>{}} />
+      <Header onToggleNav={()=> setNavOpen(true)} />
+      {navOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/30" onClick={()=> setNavOpen(false)} />
+          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl p-3 pt-14">
+            <div className="absolute right-3 top-3">
+              <button className="rounded-lg p-2 hover:bg-slate-100" onClick={()=> setNavOpen(false)}>
+                ✕
+              </button>
+            </div>
+            <Nav active={active} setActive={(t)=>{ setActive(t); setNavOpen(false); }} dueCount={dueCount} />
+          </div>
+        </div>
+      )}
       <div className="mx-auto max-w-7xl px-3 md:px-6 grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
         <aside className={`mt-16 md:col-span-3 lg:col-span-2 hidden md:block`}>
           <Nav active={active} setActive={setActive} dueCount={dueCount} />
