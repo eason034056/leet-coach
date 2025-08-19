@@ -293,6 +293,8 @@ function ReviewQueue({ items, onSubmitted }: { items: { id: string; problem: Pro
 
   useEffect(()=>{ if(!running) return; timerRef.current = setInterval(()=> setSecs(s=>s+1), 1000); return ()=> { if (timerRef.current) clearInterval(timerRef.current); }; }, [running]);
   useEffect(()=>{ setQ(3); setResult("pass"); setErrorTypes([]); setNotes(""); setSecs(0); setRunning(false); }, [index]);
+  // Clamp index whenever items length changes to avoid out-of-bounds
+  useEffect(()=>{ setIndex(i => Math.min(i, Math.max(0, items.length - 1))); }, [items.length]);
 
   if (!items.length) return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 text-center text-slate-500">
@@ -300,18 +302,20 @@ function ReviewQueue({ items, onSubmitted }: { items: { id: string; problem: Pro
     </div>
   );
 
-  const cur = items[index];
+  const safeIndex = Math.min(index, Math.max(0, items.length - 1));
+  const cur = items[safeIndex];
 
   async function submit() {
     const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cardId: cur.id, result, q, durationSec: secs, errorTypes, notes }) });
     if (!res.ok) { alert('Submit failed'); return; }
-    if (index < items.length - 1) setIndex(i=>i+1);
+    // Keep the same visual position: after removing current item, the next one shifts into this index
+    setIndex(prev => Math.max(0, Math.min(prev, items.length - 2)));
     onSubmitted();
   }
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-      <div className="flex items-center justify-between mb-3"><h3 className="font-semibold flex items-center gap-2"><PlayCircle/> Review {index+1} / {items.length}</h3><div className="text-sm text-slate-500 flex items-center gap-2"><Timer size={16}/> {secs}s</div></div>
+      <div className="flex items-center justify-between mb-3"><h3 className="font-semibold flex items-center gap-2"><PlayCircle/> Review {safeIndex+1} / {items.length}</h3><div className="text-sm text-slate-500 flex items-center gap-2"><Timer size={16}/> {secs}s</div></div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">
           <a className="block p-4 rounded-xl border hover:border-blue-300 hover:bg-blue-50/30 transition" href={cur.problem.url} target="_blank" rel="noreferrer">
@@ -360,9 +364,9 @@ function ReviewQueue({ items, onSubmitted }: { items: { id: string; problem: Pro
           <div className="p-4 rounded-2xl border bg-white">
             <div className="text-sm text-slate-600 mb-2">Queue</div>
             <div className="flex items-center justify-between">
-              <button className="rounded-xl border border-slate-200 px-3 py-2 text-sm" disabled={index===0} onClick={()=>setIndex(i=>Math.max(0,i-1))}><ChevronLeft size={16}/> Prev</button>
-              <div className="text-sm text-slate-500">{index+1} / {items.length}</div>
-              <button className="rounded-xl border border-slate-200 px-3 py-2 text-sm" disabled={index===items.length-1} onClick={()=>setIndex(i=>Math.min(items.length-1, i+1))}>Next <ChevronRight size={16}/></button>
+              <button className="rounded-xl border border-slate-200 px-3 py-2 text-sm" disabled={safeIndex===0} onClick={()=>setIndex(i=>Math.max(0,i-1))}><ChevronLeft size={16}/> Prev</button>
+              <div className="text-sm text-slate-500">{safeIndex+1} / {items.length}</div>
+              <button className="rounded-xl border border-slate-200 px-3 py-2 text-sm" disabled={safeIndex===items.length-1} onClick={()=>setIndex(i=>Math.min(items.length-1, i+1))}>Next <ChevronRight size={16}/></button>
             </div>
             <div className="mt-3 text-xs text-slate-500">Give Q then submit to schedule next review.</div>
             <button className="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm w-full mt-3" onClick={submit}>Submit & Next</button>
