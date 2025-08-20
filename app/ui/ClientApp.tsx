@@ -322,6 +322,9 @@ function ReviewQueue({ items, onSubmitted }: { items: { id: string; problem: Pro
   async function submit() {
     const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cardId: cur.id, result, q, durationSec: secs, errorTypes, notes }) });
     if (!res.ok) { alert('Submit failed'); return; }
+    setSecs(0);
+    setRunning(false);
+    setNotes("");
     // Keep the same visual position: after removing current item, the next one shifts into this index
     setIndex(prev => Math.max(0, Math.min(prev, items.length - 2)));
     onSubmitted();
