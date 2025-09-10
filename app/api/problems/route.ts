@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseRoute } from "@/lib/supabaseServer";
 
+function formatYMDLocal(d: Date) {
+	const y = d.getFullYear();
+	const m = String(d.getMonth()+1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
+}
+
 const bodySchema = z.object({
   url: z.string().url(),
   title: z.string().min(1),
@@ -45,7 +52,7 @@ export async function POST(req: Request) {
       interval_days: 0,
       repetitions: 0,
       lapses: 0,
-      due_at: new Date().toISOString().slice(0,10),
+      due_at: formatYMDLocal(new Date()),
       last_q: 0,
     });
     if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });

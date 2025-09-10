@@ -3,6 +3,13 @@ import { z } from "zod";
 import { supabaseRoute } from "@/lib/supabaseServer";
 import { nextInterval } from "@/lib/sm2";
 
+function formatYMDLocal(d: Date) {
+	const y = d.getFullYear();
+	const m = String(d.getMonth()+1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
+}
+
 const bodySchema2 = z.object({
   cardId: z.string().uuid(),
   result: z.enum(["pass","fail","partial"]),
@@ -12,10 +19,10 @@ const bodySchema2 = z.object({
   notes: z.string().optional(),
 });
 
-function startOfTodayISO() {
+function startOfTodayLocal() {
   const d = new Date();
   d.setHours(0,0,0,0);
-  return d.toISOString().slice(0,10);
+  return formatYMDLocal(d);
 }
 
 export async function POST(req: Request) {
@@ -42,10 +49,10 @@ export async function POST(req: Request) {
     tags: problem.tags ?? [],
   });
 
-  const todayISO = startOfTodayISO();
+  const todayISO = startOfTodayLocal();
   const nextDue = new Date(todayISO);
   nextDue.setDate(nextDue.getDate() + next.intervalDays);
-  const nextDueISO = nextDue.toISOString().slice(0,10);
+  const nextDueISO = formatYMDLocal(nextDue);
 
   const now = new Date();
   const startedAt = new Date(now.getTime() - durationSec*1000);
