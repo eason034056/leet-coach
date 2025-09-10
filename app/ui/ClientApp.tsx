@@ -539,10 +539,25 @@ function WeeklyOverview({ items, from, to, onPrevWeek, onNextWeek, onThisWeek, o
   const days: { date: string; label: string }[] = [];
   const start = parseYMDLocal(from);
   for (let i=0;i<7;i++){ const d = new Date(start); d.setDate(d.getDate()+i); const iso=formatYMDLocal(d); days.push({ date: iso, label: d.toLocaleDateString(undefined, { weekday: 'short', month: 'numeric', day: 'numeric' }) }); }
-  const grouped = items.reduce((acc: Record<string, typeof items>, it) => { (acc[it.due_at] ||= []).push(it); return acc; }, {} as Record<string, typeof items>);
+  
+  const todayYMD = formatYMDLocal(new Date());
+  const isViewingThisWeek = from === todayYMD;
+  
+  // Group items by date, but for this week's view, move overdue items to today
+  const grouped = items.reduce((acc: Record<string, typeof items>, it) => { 
+    let targetDate = it.due_at;
+    
+    // If viewing this week and item is overdue, show it under today
+    if (isViewingThisWeek && it.due_at < todayYMD) {
+      targetDate = todayYMD;
+    }
+    
+    (acc[targetDate] ||= []).push(it); 
+    return acc; 
+  }, {} as Record<string, typeof items>);
+  
   const total = items.length;
   const isEmpty = total === 0;
-  const todayYMD = formatYMDLocal(new Date());
   return (
     <div className="space-y-3">
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

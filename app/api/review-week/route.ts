@@ -37,13 +37,24 @@ export async function GET(req: Request) {
 	if (!from) from = startOfTodayISO();
 	if (!to) to = addDaysISO(from, 6);
 
-	const { data, error } = await supabase
+	// Special handling for today: include overdue items
+	const today = startOfTodayISO();
+	const isViewingToday = from === today;
+
+	let query = supabase
 		.from("cards")
 		.select("*, problem:problems(*)")
-		.eq("user_id", user.id)
-		.gte("due_at", from)
-		.lte("due_at", to)
-		.order("due_at", { ascending: true });
+		.eq("user_id", user.id);
+
+	if (isViewingToday) {
+		// For today's view, include all items due today or earlier (to match review tab)
+		query = query.lte("due_at", today);
+	} else {
+		// For other dates, use the original range query
+		query = query.gte("due_at", from).lte("due_at", to);
+	}
+
+	const { data, error } = await query.order("due_at", { ascending: true });
 
 	if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 	return NextResponse.json({ items: data, from, to });
