@@ -303,6 +303,7 @@ function ReviewQueue({ items, onSubmitted }: { items: { id: string; problem: Pro
   const [notes, setNotes] = useState("");
   const [secs, setSecs] = useState(0);
   const [running, setRunning] = useState(false);
+  const [showOverview, setShowOverview] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(()=>{ if(!running) return; timerRef.current = setInterval(()=> setSecs(s=>s+1), 1000); return ()=> { if (timerRef.current) clearInterval(timerRef.current); }; }, [running]);
@@ -331,8 +332,57 @@ function ReviewQueue({ items, onSubmitted }: { items: { id: string; problem: Pro
   }
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-      <div className="flex items-center justify-between mb-3"><h3 className="font-semibold flex items-center gap-2"><PlayCircle/> Review {safeIndex+1} / {items.length}</h3><div className="text-sm text-slate-500 flex items-center gap-2"><Timer size={16}/> {secs}s</div></div>
+    <div className="space-y-4">
+      {/* 題目總覽區塊 */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Layers3 size={18} className="text-blue-600" /> 今天的題目總覽 ({items.length})
+          </h3>
+          <button 
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100 transition"
+            onClick={() => setShowOverview(!showOverview)}
+          >
+            {showOverview ? '收起' : '展開'}
+          </button>
+        </div>
+        
+        {showOverview && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {items.map((item, idx) => (
+              <div 
+                key={item.id}
+                className={`p-3 rounded-xl border transition cursor-pointer ${
+                  idx === safeIndex 
+                    ? 'border-blue-400 bg-blue-50' 
+                    : 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/30'
+                }`}
+                onClick={() => setIndex(idx)}
+              >
+                <div className="font-medium text-sm mb-2 line-clamp-2">{item.problem.title}</div>
+                <div className="flex flex-wrap gap-2 items-center mb-2">
+                  <Badge>{item.problem.difficulty}</Badge>
+                  {item.problem.tags?.slice(0, 2).map((tag, i) => (
+                    <Badge key={i}><Tag size={12}/> {tag}</Badge>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>#{idx + 1}</span>
+                  {idx === safeIndex && <span className="text-blue-600 font-medium">目前題目</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div className="mt-3 pt-3 border-t border-slate-200 text-sm text-slate-500 text-center">
+          點擊題目卡片可以直接跳到該題目進行複習
+        </div>
+      </div>
+
+      {/* 原來的複習介面 */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-3"><h3 className="font-semibold flex items-center gap-2"><PlayCircle/> Review {safeIndex+1} / {items.length}</h3><div className="text-sm text-slate-500 flex items-center gap-2"><Timer size={16}/> {secs}s</div></div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">
           <a className="block p-4 rounded-xl border hover:border-blue-300 hover:bg-blue-50/30 transition" href={cur.problem.url} target="_blank" rel="noreferrer">
@@ -390,6 +440,7 @@ function ReviewQueue({ items, onSubmitted }: { items: { id: string; problem: Pro
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
